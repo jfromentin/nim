@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+    <head>
+      <title>Generalised Nim's game</title>
+    </head>
+    <body>
+      <h1>Generalized Nim's game</h1>
+      
+      Moves : <input type="text" id="input_moves" value="3,4,8">
+
+      <br><br>
+
+      <button onclick="run()">Compute</button>
+      <br><br>
+      <hr>
+      
+      <p id="output"></p>
+      <h4 id="preperiod-title"></h4>
+      <div style="max-height: 300px;max-width:100%;overflow: scroll;">
+	<canvas id="preperiod-canvas" height="140" width="600">
+	</canvas>
+      </div>
+      <h4 id="period-title"></h4>
+      <div style="max-height: 300px;max-width:100%;overflow: scroll;">
+	<canvas id="period-canvas" height="140" width="600">
+	</canvas>
+      </div>
+         
+      <br><br>
+ 
+      <script>
+	var M;
+	var n;
+	var ouput;
+	var context;
+	var canvas
+	var S;
+	const S_max_len=10000;
+	var V;
+	var U;
+	var u;
+	var v;
+	var period;
+	var preperiod;
+	var vmax=300;
+	var error;
+
+	function set_moves(string){
+	    let s=string.split(',');
+	    let Mset=new Set()
+	    for (const g of s){
+		let i=parseInt(g);
+		if(!isNaN(i)){
+		    Mset.add(i);
+		}
+	    }
+	    M=new Uint16Array([...Mset]);
+	    M.sort();
+	    n=M.length
+	    if(n>16){
+		output.innerHTML="You must enter at most 16 moves.";
+		error=true;
+	    }
+	    
+	}
+
+	function set_strategic_head(){
+	    let val=2**n-1;
+	    let pos=1;
+	    for(let i=0;i<n;++i){
+		while(pos<=M[i]){
+		    S[pos]=val;
+		    pos+=1;
+		}
+		val-=2**i
+	    }
+	    for(let i=0;i<M[0];++i){
+		S[i+M[n-1]+1]=0;
+	    }
+	    return M[0]+M[n-1]+1;
+	}
+
+	function compute_moves(p){
+	    let s=0;
+	    for(let i=0;i<n;++i){
+		let m=M[i];
+		let f=2**i;
+		if(S[p-m]==0){
+		    s+=f;
+		}
+	    }
+	    S[p]=s;
+	}
+
+	function compute_strategic_word(){
+	    S=new Array(S_max_len);
+	    let pos=set_strategic_head();
+	    while(pos<S_max_len){
+		compute_moves(pos);
+		pos+=1;
+	    }
+	}
+
+	function test_period_with_preperiod(){
+	    for(let i=u+1;i<S_max_len-v;++i){
+		if(S[i+v]!=S[i]){
+		    return false;
+		}
+	    }
+	    return true;
+	}
+	function test_period(){
+	    u=0;
+	    while(2*u<=S_max_len){
+		if(test_period_with_preperiod()){
+		    return u;
+		}
+		++u;
+	    }
+	    return -1;
+	}
+	
+	function find_preperiod_and_period(){
+	    v=2;
+	    while(v<vmax){
+		u=test_period()
+		if(u!=-1){
+		    return;
+		}
+		++v;
+	    }
+	    output.innerHTML="Periodic word not found.";
+	    error=true;
+	}
+
+	function draw_word(begin,end){
+	    context.strokeStyle = 'black';
+	    context.lineWidth = 1;
+	    let size=15;
+	    let dy=1;
+	    let dx=20;
+	    let l=end-begin;
+	    canvas.width=size*l+2*dx;
+	    canvas.height=size*n+2*dy+10;
+	    context.beginPath();
+	    for(let i=0;i<n+1;++i){
+		let y=i*size+dy;
+		context.moveTo(dx,y);
+		context.lineTo(dx+l*size,y);
+	    }
+	    for(let i=0;i<l+1;++i){
+		let x=i*size+dx;
+		context.moveTo(x,dy);
+		context.lineTo(x,n*size+dy);
+	    }
+	    context.fillStyle='gray';
+	    for(let p=begin;p<end;++p){
+		let s=S[p];
+		for(let i=0;i<n;++i){
+		    let f=2**i;
+		    if((s&f)!=0){
+			context.fillRect(size*(p-begin)+dx,(n-1-i)*size+dy,size,size);
+		    }
+		}
+	    }
+	    context.stroke();     
+	}
+
+	function clear(){
+	    error=false;
+	    output.innerHTML="";
+	    period.innerHTML="";
+	    preperiod.innerHTML="";
+	    canvas=document.getElementById('period-canvas');
+	    context=canvas.getContext('2d');
+	    context.clearRect(0, 0, canvas.width, canvas.height);
+	    canvas=document.getElementById('preperiod-canvas');
+	    context=canvas.getContext('2d');
+	    context.clearRect(0, 0, canvas.width, canvas.height);
+
+	}
+	
+	function run(){
+	    let moves_string=document.getElementById("input_moves");
+	    output=document.getElementById("output");
+	    period=document.getElementById("period-title");
+	    preperiod=document.getElementById("preperiod-title");
+	    clear();
+	    set_moves(moves_string.value);
+	    if(error) return;
+	    output.innerHTML="Moves are "+M+".<br><br>";
+	    compute_strategic_word();
+	    find_preperiod_and_period();
+
+	    period.innerHTML="Period word has length "+v+":";
+	    canvas=document.getElementById("period-canvas");
+	    context=canvas.getContext('2d');
+	    draw_word(u+1,u+v+1);
+
+	    preperiod.innerHTML="Preperiod word has length "+u+":";
+	    canvas=document.getElementById("preperiod-canvas");
+	    context=canvas.getContext('2d');
+	    draw_word(1,u+1);
+
+	}
+      </script>
+            
+    </body>
+</html>
